@@ -10,10 +10,11 @@ Mini SOC home lab: Sigma rules tested against recorded ATT&CK attacks, later a l
 
 ## How it runs
 
-`.github/workflows/detect.yml` runs on every push: downloads Chainsaw (pinned `CHAINSAW_VERSION`), SigmaHQ rules, and EVTX-ATTACK-SAMPLES, hunts twice (`rules/` and SigmaHQ), then `attack_coverage.py` writes the ATT&CK table to the run summary.
+`.github/workflows/detect.yml` runs on every push: downloads Chainsaw, SigmaHQ rules, and EVTX-ATTACK-SAMPLES (all pinned in `env:`), hunts twice (`rules/` and SigmaHQ), then `attack_coverage.py` writes the ATT&CK table to the run summary.
 
 - Test a change by pushing and checking the run: `gh run watch <id>` then `gh run view <id> --log`.
 - Local check (no downloads needed): `python3 test_coverage.py`.
+- `attack-layer.json` must match what CI generates. After bumping a pinned version or changing rules: `gh run download <id> -n attack-layer`, then rename `attack-layer.new.json` to `attack-layer.json` and commit.
 - CI fails if any rule in `rules/` matches nothing. A new rule must fire on at least one sample log.
 - `rules/linux/` rules are tested by the `linux-sim` job instead: it simulates the attack under auditd and must catch every attacker write with zero benign hits. Local check: `python3 linux_hunt.py --test`. Filter on `exe`, never `comm` (spoofable), and never on `exe` alone for shells: pair it with `proctitle`. `linux_hunt.py` merges each event's auditd records into one row, so SYSCALL and PROCTITLE fields can be combined.
 
