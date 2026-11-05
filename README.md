@@ -66,12 +66,27 @@ Every push runs [`.github/workflows/detect.yml`](.github/workflows/detect.yml) o
 | `attack_coverage.py` | Builds the coverage table from the hunt results |
 | `test_coverage.py` | Self-check for the technique-matching logic |
 | `.github/workflows/detect.yml` | The CI pipeline |
+| `rules/linux/`, `linux_hunt.py`, `.github/simulate-pyenv-attack.sh` | Linux rules, tested by simulating the attack under auditd |
 
 ### First results (2026-11-04)
 
 - **11 of 12 techniques** are detected by SigmaHQ community rules on the recorded attacks. **T1548.003 (Linux sudo abuse)** has no sample data: it needs the live lab in phase 2.
 - **My first rule**, [`windows_security_log_cleared.yml`](rules/windows_security_log_cleared.yml) (T1070.001), fires on cleared Security (1102) and System (104) logs.
 - **Lesson learned:** the first version of the rule never matched. Chainsaw ties `logsource: service: security` to the `Microsoft-Windows-Security-Auditing` provider, but Windows writes the log-cleared events under `Microsoft-Windows-Eventlog`. Matching on `Channel` instead fixed it. The SigmaHQ rules for T1070.001 show **zero hits** in the same run, probably for the same reason, so this is a real gap my rule fills.
+
+### Linux attack simulation: the Binance pyenv-shim swap (2026-11-05)
+
+The [$6.3B Binance heist](https://www.bleepingcomputer.com/news/security/binance-says-fake-job-interview-led-to-63-billion-crypto-heist/) started when a fake take-home assignment swapped a pyenv component on an engineer's laptop. No recorded dataset covers that, so the `linux-sim` CI job **records its own telemetry**:
+
+1. Installs auditd on the runner and watches `~/.pyenv/shims`.
+2. Runs **real pyenv** (`pyenv rehash`) to capture benign shim writes, then overwrites a shim like the malware did. It repeats the overwrite with python3 renamed to `cp` as an evasion attempt. The payload is inert.
+3. Converts [`rules/linux/`](rules/linux/) to SQL with sigma-cli and runs it over the logs with [`linux_hunt.py`](linux_hunt.py). **The build fails if any attacker write is missed or any benign write alerts.**
+
+Result: [`pyenv_shim_tampering.yml`](rules/linux/pyenv_shim_tampering.yml) (T1554) catches **2 of 2** attacker writes with **0 of 9** false positives from real pyenv.
+
+- **Lesson 1:** measure before you filter. I assumed pyenv writes shims as a process named `pyenv-*`. The audit log showed it actually uses `bash`, `cp`, `chmod`, and `rm`.
+- **Lesson 2:** filter on `exe` (the binary's real path, set by the kernel), not `comm` (a name any process can change). The CI evasion case proves the difference.
+- **Known gap:** malware that calls the real `/usr/bin/cp` is missed. Closing that needs a file-integrity check against pyenv's shim template.
 
 ## Decisions made
 
