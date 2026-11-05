@@ -20,6 +20,8 @@ python3 -c "open('$PYENV_ROOT/shims/python', 'w').write('#!/bin/sh\necho pwned\n
 # Evasion attempt: same payload from a binary renamed `cp`, so comm=cp but exe=/tmp/cp
 cp "$(readlink -f "$(command -v python3)")" /tmp/cp
 /tmp/cp -c "open('$PYENV_ROOT/shims/python', 'a').write('# evasion\n')"
+# Evasion attempt: a plain bash script (the most common dropper), exe=/usr/bin/bash
+bash -c "echo '# dropper' >> '$PYENV_ROOT/shims/python'"
 sleep 2
 sudo tail -n "+$((n + 1))" "$LOG" > attack.log
 echo "legit.log: $(grep -c pyenv_shim legit.log) shim events, attack.log: $(grep -c pyenv_shim attack.log)"

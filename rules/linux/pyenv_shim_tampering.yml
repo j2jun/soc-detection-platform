@@ -7,11 +7,13 @@ description: |
   foothold in the 2026 Binance heist: a fake take-home assignment swapped a pyenv component
   on an engineer's laptop.
   Requires the audit rule `-w <home>/.pyenv/shims -p wa -k pyenv_shim`.
-  The filter uses `exe` (the binary's real path, set by the kernel), not `comm`, which any
-  process can rename (CI checks that a renamed `cp` still alerts).
-  Known gap: `pyenv rehash` writes shims through bash, cp, chmod, and rm (measured in CI), so
-  malware that calls those real binaries is missed. Pair this with a file-integrity
-  check that compares each shim to pyenv's prototype.
+  `pyenv rehash` writes shims through bash, cp, chmod, and rm (measured in CI). Each filter
+  requires BOTH the real binary (`exe`, set by the kernel; `comm` is spoofable) AND a pyenv
+  command line (`proctitle`, merged in from the event's PROCTITLE record), so a plain bash
+  script or a renamed binary still alerts (both are CI cases).
+  Known gap: the command line is argv, which an attacker can forge (e.g. passing the
+  pyenv-rehash path as a dummy argument). Closing that needs process ancestry or a
+  file-integrity check comparing each shim to pyenv's prototype.
 references:
   - https://www.bleepingcomputer.com/news/security/binance-says-fake-job-interview-led-to-63-billion-crypto-heist/
   - https://attack.mitre.org/techniques/T1554/
@@ -29,13 +31,16 @@ detection:
   selection:
     type: SYSCALL
     key: pyenv_shim
-  filter_pyenv:  # every binary `pyenv rehash` used in the CI simulation
+  filter_pyenv_rehash:  # the rehash script itself (runs as `bash .../libexec/pyenv-rehash`)
+    exe: /usr/bin/bash
+    proctitle|contains: /.pyenv/libexec/pyenv-rehash
+  filter_pyenv_prototype:  # rehash copies/chmods/removes its prototype shim
     exe:
-      - /usr/bin/bash
       - /usr/bin/cp
       - /usr/bin/chmod
       - /usr/bin/rm
-  condition: selection and not filter_pyenv
+    proctitle|contains: /shims/.pyenv-shim
+  condition: selection and not 1 of filter_pyenv_*
 falsepositives:
   - Other tools that manage pyenv shims, e.g. pyenv plugins written in another language (rare)
 level: medium
