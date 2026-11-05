@@ -1,0 +1,23 @@
+title: Windows Security Event Log Cleared
+id: 5fd6ac96-c849-4ce9-a785-478c4c80a97d
+status: experimental
+description: |
+  Detects the Security event log being cleared (Event ID 1102). Attackers clear
+  logs to hide their tracks after running tools like Mimikatz.
+references:
+  - https://attack.mitre.org/techniques/T1070/001/
+author: j2jun
+date: 2026-11-04
+tags:
+  - attack.defense-evasion
+  - attack.t1070.001
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 1102
+  condition: selection
+falsepositives:
+  - An administrator clearing the log on purpose (confirm with the change ticket)
+level: high

@@ -1,0 +1,37 @@
+name: Detection tests
+
+# Runs Sigma rules against recorded attack logs. Nothing is stored in the repo:
+# the tools and datasets are downloaded fresh on GitHub's runner each time.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CHAINSAW_VERSION: v2.17.1
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Chainsaw, SigmaHQ rules, and attack samples
+        run: |
+          curl -sSL "https://github.com/WithSecureLabs/chainsaw/releases/download/${CHAINSAW_VERSION}/chainsaw_x86_64-unknown-linux-gnu.tar.gz" | tar xz
+          curl -sSLo mapping.yml "https://raw.githubusercontent.com/WithSecureLabs/chainsaw/${CHAINSAW_VERSION}/mappings/sigma-event-logs-all.yml"
+          git clone -q --depth 1 https://github.com/SigmaHQ/sigma.git
+          git clone -q --depth 1 https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES.git samples
+          find . -maxdepth 2 -name chainsaw -type f
+
+      - name: Hunt with my rules
+        run: ./chainsaw/chainsaw hunt samples -s rules --mapping mapping.yml --json -o custom.json --skip-errors -q
+
+      - name: Hunt with SigmaHQ community rules
+        run: ./chainsaw/chainsaw hunt samples -s sigma/rules/windows --mapping mapping.yml --json -o sigma.json --skip-errors -q
+
+      - name: Inspect output shape
+        run: python3 -c "import json;d=json.load(open('custom.json'));print(len(d));print(json.dumps(d[0],indent=1)[:3000] if d else 'no hits')"
