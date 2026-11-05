@@ -34,12 +34,12 @@ detection:
   filter_pyenv_rehash:  # the rehash script itself (runs as `bash .../libexec/pyenv-rehash`)
     exe: /usr/bin/bash
     proctitle|contains: /.pyenv/libexec/pyenv-rehash
-  filter_pyenv_prototype:  # rehash copies/chmods/removes its prototype shim
+  filter_pyenv_prototype:  # rehash copies/chmods/removes its prototypes (.pyenv-shim, .pyenv-source-shim)
     exe:
       - /usr/bin/cp
       - /usr/bin/chmod
       - /usr/bin/rm
-    proctitle|contains: /shims/.pyenv-shim
+    proctitle|contains: /shims/.pyenv-
   condition: selection and not 1 of filter_pyenv_*
 falsepositives:
   - Other tools that manage pyenv shims, e.g. pyenv plugins written in another language (rare)
