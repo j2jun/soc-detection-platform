@@ -53,8 +53,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq auditd
           git clone -q --depth 1 https://github.com/pyenv/pyenv.git ~/.pyenv
-          pip install -q sigma-cli pysigma-backend-sqlite
-          pip list 2>/dev/null | grep -i sigma
+          pip install -q sigma-cli==4.0.0 pySigma==2.0.2 pysigma-backend-sqlite==2.1.1
 
       - name: Simulate benign pyenv activity, then the shim-swap attack
         run: bash .github/simulate-pyenv-attack.sh

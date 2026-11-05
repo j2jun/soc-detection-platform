@@ -12,8 +12,10 @@ FIELD = re.compile(r'(\w+)=("[^"]*"|\S+)')
 
 
 def parse(lines):
-    """auditd lines -> list of {field: value}. Quotes stripped; msg=audit(...) kept as-is."""
-    return [{k: v.strip('"') for k, v in FIELD.findall(line)} for line in lines if "type=" in line]
+    """auditd lines -> list of {field: value}. Quotes stripped. ENRICHED-format duplicates
+    (ARCH, UID, ...: uppercase copies of raw fields) are dropped; SQLite column names ignore case."""
+    return [{k: v.strip('"') for k, v in FIELD.findall(line) if not k.isupper()}
+            for line in lines if "type=" in line]
 
 
 def hunt(records, query):
@@ -35,7 +37,7 @@ def main(legit_path, attack_path, sql_path):
     events = [r for r in legit + attack if r.get("key") == "pyenv_shim"]
     print("Shim writes seen: " + show(events))
     ok = True
-    for query in filter(None, map(str.strip, open(sql_path))):
+    for query in (q.strip() for q in open(sql_path) if q.startswith("SELECT")):
         fp, tp = hunt(legit, query), hunt(attack, query)
         print(f"\n`{query}`\n- benign pyenv activity: {len(fp)} hits ({show(fp)})\n"
               f"- simulated attack: {len(tp)} hits ({show(tp)})")
@@ -45,7 +47,7 @@ def main(legit_path, attack_path, sql_path):
 
 
 def test():
-    rec = parse(['type=SYSCALL msg=audit(1.2:3): syscall=257 comm="python3" exe="/usr/bin/python3.12" key="pyenv_shim"',
+    rec = parse(['type=SYSCALL msg=audit(1.2:3): syscall=257 comm="python3" exe="/usr/bin/python3.12" key="pyenv_shim" ARCH=x86_64',
                  "noise without fields"])
     assert rec == [{"type": "SYSCALL", "msg": "audit(1.2:3):", "syscall": "257", "comm": "python3",
                     "exe": "/usr/bin/python3.12", "key": "pyenv_shim"}], rec

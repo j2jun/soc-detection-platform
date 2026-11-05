@@ -1,12 +1,15 @@
-title: Pyenv Shim Modified Outside Pyenv
+title: Pyenv Shim Modified by Unexpected Process
 id: be9abf3e-048c-4abf-b09a-3e92541276a0
 status: experimental
 description: |
-  Detects a write to a pyenv shim by a process that isn't pyenv. Shims run every time a
+  Detects a write to a pyenv shim by a process other than the ones pyenv itself uses. Shims run every time a
   developer types `python`, so replacing one gives persistent code execution. This is the
   foothold in the 2026 Binance heist: a fake take-home assignment swapped a pyenv component
   on an engineer's laptop.
   Requires the audit rule `-w <home>/.pyenv/shims -p wa -k pyenv_shim`.
+  Known gap: `pyenv rehash` writes shims through bash, cp, chmod, and rm (measured in CI), so
+  those are filtered out, and malware that uses them is missed. Pair this with a file-integrity
+  check that compares each shim to pyenv's prototype.
 references:
   - https://www.bleepingcomputer.com/news/security/binance-says-fake-job-interview-led-to-63-billion-crypto-heist/
   - https://attack.mitre.org/techniques/T1554/
@@ -24,9 +27,13 @@ detection:
   selection:
     type: SYSCALL
     key: pyenv_shim
-  filter_pyenv:
-    comm|startswith: pyenv
+  filter_pyenv:  # every process `pyenv rehash` used in the CI simulation
+    comm:
+      - bash
+      - cp
+      - chmod
+      - rm
   condition: selection and not filter_pyenv
 falsepositives:
-  - Tools other than pyenv that manage shims (rare)
-level: high
+  - Other tools that manage pyenv shims, e.g. pyenv plugins written in another language (rare)
+level: medium
