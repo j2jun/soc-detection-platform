@@ -1,9 +1,9 @@
-title: Windows Security Event Log Cleared
+title: Windows Event Log Cleared
 id: 5fd6ac96-c849-4ce9-a785-478c4c80a97d
 status: experimental
 description: |
-  Detects the Security event log being cleared (Event ID 1102). Attackers clear
-  logs to hide their tracks after running tools like Mimikatz.
+  Detects the Security (Event ID 1102) or System (Event ID 104) event log being
+  cleared. Attackers clear logs to hide their tracks after running tools like Mimikatz.
 references:
   - https://attack.mitre.org/techniques/T1070/001/
 author: j2jun
@@ -11,13 +11,19 @@ date: 2026-11-04
 tags:
   - attack.defense-evasion
   - attack.t1070.001
+# No `service:` on purpose. Both events are written by the Microsoft-Windows-Eventlog
+# provider, but Chainsaw ties `service: security` to Microsoft-Windows-Security-Auditing,
+# so a service-scoped rule silently never matches. Filtering on Channel works everywhere.
 logsource:
   product: windows
-  service: security
 detection:
-  selection:
+  security_cleared:
+    Channel: Security
     EventID: 1102
-  condition: selection
+  system_cleared:
+    Channel: System
+    EventID: 104
+  condition: 1 of *_cleared
 falsepositives:
   - An administrator clearing the log on purpose (confirm with the change ticket)
 level: high
