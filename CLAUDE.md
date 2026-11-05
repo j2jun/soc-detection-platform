@@ -15,7 +15,7 @@ Mini SOC home lab: Sigma rules tested against recorded ATT&CK attacks, later a l
 - Test a change by pushing and checking the run: `gh run watch <id>` then `gh run view <id> --log`.
 - Local check (no downloads needed): `python3 test_coverage.py`.
 - CI fails if any rule in `rules/` matches nothing. A new rule must fire on at least one sample log.
-- `rules/linux/` rules are tested by the `linux-sim` job instead: it simulates the attack under auditd and must catch every attacker write with zero benign hits. Local check: `python3 linux_hunt.py --test`. Filter on `exe`, never `comm` (spoofable).
+- `rules/linux/` rules are tested by the `linux-sim` job instead: it simulates the attack under auditd and must catch every attacker write with zero benign hits. Local check: `python3 linux_hunt.py --test`. Filter on `exe`, never `comm` (spoofable), and never on `exe` alone for shells: pair it with `proctitle`. `linux_hunt.py` merges each event's auditd records into one row, so SYSCALL and PROCTITLE fields can be combined.
 
 ## Writing rules (`rules/*.yml`)
 
