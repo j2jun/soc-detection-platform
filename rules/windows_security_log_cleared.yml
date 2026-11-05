@@ -17,13 +17,13 @@ tags:
 logsource:
   product: windows
 detection:
-  security_cleared:
+  cleared_security:
     Channel: Security
     EventID: 1102
-  system_cleared:
+  cleared_system:
     Channel: System
     EventID: 104
-  condition: 1 of *_cleared
+  condition: 1 of cleared_*
 falsepositives:
   - An administrator clearing the log on purpose (confirm with the change ticket)
 level: high
