@@ -1,7 +1,7 @@
 """Run sigma-cli SQLite queries against auditd logs.
 
 Usage: python3 linux_hunt.py legit.log attack.log queries.sql
-Each query must match nothing in legit.log and something in attack.log, or this exits 1.
+Each query must match nothing in legit.log and EVERY attacker write in attack.log, or this exits 1.
 Self-check: python3 linux_hunt.py --test
 """
 import re
@@ -41,7 +41,8 @@ def main(legit_path, attack_path, sql_path):
         fp, tp = hunt(legit, query), hunt(attack, query)
         print(f"\n`{query}`\n- benign pyenv activity: {len(fp)} hits ({show(fp)})\n"
               f"- simulated attack: {len(tp)} hits ({show(tp)})")
-        ok &= not fp and bool(tp)
+        writes = [r for r in attack if r.get("type") == "SYSCALL" and r.get("key") == "pyenv_shim"]
+        ok &= not fp and len(tp) == len(writes) > 0
     print("\nPASS" if ok else "\n**FAIL:** a rule missed the attack or alerted on benign activity")
     return 0 if ok else 1
 
@@ -51,8 +52,9 @@ def test():
                  "noise without fields"])
     assert rec == [{"type": "SYSCALL", "msg": "audit(1.2:3):", "syscall": "257", "comm": "python3",
                     "exe": "/usr/bin/python3.12", "key": "pyenv_shim"}], rec
-    q = "SELECT * FROM <TABLE_NAME> WHERE type='SYSCALL' AND key='pyenv_shim' AND NOT comm LIKE 'pyenv%'"
-    assert len(hunt(rec, q)) == 1 and hunt([dict(rec[0], comm="pyenv-rehash")], q) == []
+    q = "SELECT * FROM <TABLE_NAME> WHERE type='SYSCALL' AND key='pyenv_shim' AND NOT exe='/usr/bin/cp'"
+    assert len(hunt(rec, q)) == 1 and hunt([dict(rec[0], exe="/usr/bin/cp")], q) == []
+    assert len(hunt([dict(rec[0], comm="cp", exe="/tmp/cp")], q)) == 1  # renamed binary still caught
     print("ok")
 
 
