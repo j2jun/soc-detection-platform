@@ -52,17 +52,55 @@ Simulate an attack → check that the logs arrived → write or convert a Sigma 
 - [MITRE Caldera](https://github.com/mitre/caldera)
 - [Sysmon](https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon) with the [SwiftOnSecurity](https://github.com/SwiftOnSecurity/sysmon-config) or [Olaf Hartong](https://github.com/olafhartong/sysmon-modular) config
 
+## Decisions made
+
+### #2 SIEM backend: phased, Wazuh first, then Elastic (decided 2026-11-04)
+
+| | Wazuh only | Wazuh + Elastic | Elastic only |
+|---|---|---|---|
+| RAM | ~4–8 GB | ~10–16 GB | ~6–8 GB |
+| Setup effort | Low (all-in-one installer) | High (two stacks + forwarding) | Medium (Fleet + agents) |
+| Sigma rules | No official Wazuh converter; hand-port to XML or convert to OpenSearch queries | Official, mature pySigma Elasticsearch backend | Same as Wazuh + Elastic |
+| ATT&CK mapping | Built-in MITRE ATT&CK dashboard view | Both | Elastic rule ATT&CK tags |
+| Response | Wazuh Active Response | Wazuh Active Response | Elastic Defend (some features paid) |
+
+- **Phase 1:** Wazuh only. Get logs, alerts and attack simulations working end to end.
+- **Phase 2:** add Elastic Stack as the Sigma rules-as-code pipeline, converted with pySigma's Elasticsearch backend.
+
+**Why:** Wazuh makes collection and response easy; Elastic makes running Sigma rules easy. Phasing gives a working lab before the hardest integration work, and the final setup still uses every tool in the project brief.
+
+### #7 Technique scope: frequent techniques linked into one attack chain (decided 2026-11-04)
+
+Approaches considered: breadth across tactics, one attack chain, emulating a threat group, or the most common real-world techniques. Chosen: **most common techniques** (prioritized using Red Canary's Threat Detection Report) **linked into one ransomware-style attack chain**: brute force in → run PowerShell → persist → dump credentials → move laterally → delete backups.
+
+| Tactic | Technique | Simulated with | Detection source | Detected? |
+|---|---|---|---|---|
+| Execution | T1059.001 PowerShell (encoded commands) | Atomic Red Team | | |
+| Persistence | T1053.005 Scheduled Task | Atomic | | |
+| Persistence | T1547.001 Registry Run Keys | Atomic | | |
+| Persistence | T1136.001 Create Local Account | Atomic | | |
+| Privilege escalation (Linux) | T1548.003 Sudo abuse | Atomic | | |
+| Defense evasion | T1218.011 Rundll32 (LOLBin) | Atomic | | |
+| Defense evasion | T1070.001 Clear Windows Event Logs | Atomic | | |
+| Credential access | T1003.001 LSASS memory dump | Atomic (Mimikatz / procdump) | | |
+| Credential access | T1110 Brute force (SSH / RDP) | Hydra / Atomic | | |
+| Discovery | T1087 Account Discovery | Atomic | | |
+| Lateral movement | T1021.002 SMB / admin shares | Atomic / PsExec | | |
+| Impact | T1490 Inhibit System Recovery (delete shadow copies) | Atomic | | |
+
+**Detection source** will be one of: **built-in** (Wazuh/Elastic prebuilt rule), **Sigma** (converted community rule), or **custom** (written by me). This keeps the coverage map honest about which detections are my own work.
+
 ## Open decisions
 
 | # | Decision | Options | Leaning toward |
 |---|---|---|---|
 | 1 | Where it runs | Laptop VMs (VirtualBox/UTM), home server, or cloud (AWS/Azure free tier) | Local VMs if 16GB+ RAM, otherwise cloud. Apple Silicon needs ARM Windows builds, which limits some tools. |
-| 2 | SIEM backend | Wazuh's built-in indexer (OpenSearch) or a separate Elastic Stack | Wazuh indexer first (one install). Add Elastic only for Kibana/Elastic Security experience; running both doubles RAM and setup. |
+| 2 | SIEM backend | Wazuh's built-in indexer (OpenSearch) or a separate Elastic Stack | **Decided:** phased, Wazuh first, then Elastic (see above) |
 | 3 | Victim machines | Windows, Linux, or both | Both. Most ATT&CK techniques and Sigma rules target Windows. |
 | 4 | Windows telemetry | Default event logs, or add Sysmon | Add Sysmon. Without it, most Sigma rules have nothing to match. |
 | 5 | Sigma rule use | Convert to Wazuh XML, to Elastic/OpenSearch queries, or both | Convert to the chosen backend with `sigma-cli`. Wazuh has no official Sigma backend, so Wazuh XML needs community tools or hand-porting. |
 | 6 | Attack tool | Atomic Red Team (single techniques), Caldera (attack chains), or manual | Atomic Red Team first, Caldera later for a full attack-chain demo. |
-| 7 | Technique scope | All of ATT&CK, or a focused set | 10–20 techniques across several tactics (credential dumping, PowerShell, persistence, lateral movement). |
+| 7 | Technique scope | All of ATT&CK, or a focused set | **Decided:** 12 frequent techniques as one attack chain (see above) |
 | 8 | Response depth | Detection only, or automated response | Detection plus written playbooks. Wazuh Active Response is an optional extra. |
 | 9 | Network isolation | Isolated host-only network, or bridged to the home network | Isolated. Never run attack simulations on a network with real devices. |
 | 10 | Deliverable format | GitHub repo, blog post, or demo video | GitHub repo with rules, Navigator layer, screenshots and a write-up. |
