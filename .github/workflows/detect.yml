@@ -39,7 +39,19 @@ jobs:
       - name: ATT&CK coverage report (fails if a custom rule never fires)
         run: |
           set -o pipefail
-          { echo "## ATT&CK coverage"; python3 attack_coverage.py custom.json sigma.json rules; } | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo "## ATT&CK coverage"; python3 attack_coverage.py custom.json sigma.json rules attack-layer.new.json; } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload ATT&CK Navigator layer
+        uses: actions/upload-artifact@v4
+        with:
+          name: attack-layer
+          path: attack-layer.new.json
+
+      - name: Committed Navigator layer is up to date
+        run: |
+          diff attack-layer.json attack-layer.new.json || {
+            echo "::error::attack-layer.json is stale. Refresh: gh run download <run-id> -n attack-layer && mv attack-layer.new.json attack-layer.json"
+            exit 1; }
 
   # Linux rules can't be tested on recorded Windows logs, so this job records its own:
   # it simulates the Binance pyenv-shim swap under auditd and checks each rule in rules/linux/

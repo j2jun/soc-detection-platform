@@ -36,11 +36,11 @@ Simulate an attack → check that the logs arrived → write or convert a Sigma 
 
 ## Planned deliverables
 
-- [ ] Detection rules stored as code (Sigma YAML + converted queries)
-- [ ] ATT&CK Navigator layer showing detection coverage
+- [~] Detection rules stored as code (Sigma YAML + converted queries): 2 custom rules so far, tested in CI
+- [x] ATT&CK Navigator layer showing detection coverage: [`attack-layer.json`](attack-layer.json), regenerated and checked by CI
 - [ ] Dashboards (screenshots)
-- [ ] Incident response playbooks for 1–2 simulated attacks
-- [ ] Write-up of the results
+- [x] Incident response playbooks for 1–2 simulated attacks: [`PLAYBOOKS.md`](PLAYBOOKS.md)
+- [x] Write-up of the results (phase 1): [`WRITEUP.md`](WRITEUP.md)
 
 ## Resources
 
@@ -66,6 +66,8 @@ Every push runs [`.github/workflows/detect.yml`](.github/workflows/detect.yml) o
 | `attack_coverage.py` | Builds the coverage table from the hunt results |
 | `test_coverage.py` | Self-check for the technique-matching logic |
 | `.github/workflows/detect.yml` | The CI pipeline |
+| `attack-layer.json` | ATT&CK Navigator coverage map (CI fails if it's stale) |
+| `PLAYBOOKS.md`, `WRITEUP.md` | Incident response playbooks and the phase 1 write-up |
 | `rules/linux/`, `linux_hunt.py`, `.github/simulate-pyenv-attack.sh` | Linux rules, tested by simulating the attack under auditd |
 
 ### First results (2026-11-04)
