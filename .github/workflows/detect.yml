@@ -33,5 +33,10 @@ jobs:
       - name: Hunt with SigmaHQ community rules
         run: ./chainsaw/chainsaw hunt samples -s sigma/rules/windows --mapping mapping.yml --json -o sigma.json --skip-errors
 
-      - name: Inspect output shape
-        run: python3 -c "import json;d=json.load(open('custom.json'));print(len(d));print(json.dumps(d[0],indent=1)[:3000] if d else 'no hits')"
+      - name: Self-check the coverage script
+        run: python3 test_coverage.py
+
+      - name: ATT&CK coverage report (fails if a custom rule never fires)
+        run: |
+          set -o pipefail
+          { echo "## ATT&CK coverage"; python3 attack_coverage.py custom.json sigma.json rules; } | tee -a "$GITHUB_STEP_SUMMARY"
