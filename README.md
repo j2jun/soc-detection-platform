@@ -146,6 +146,8 @@ Approaches considered: breadth across tactics, one attack chain, emulating a thr
 
 ## Open decisions
 
+[`PHASE2.md`](PHASE2.md) proposes answers to #3–6 and #8–10 as part of the Azure lab plan, starting with cost guardrails.
+
 | # | Decision | Options | Leaning toward |
 |---|---|---|---|
 | 1 | Where it runs | Laptop VMs (VirtualBox/UTM), home server, or cloud (AWS/Azure free tier) | **Decided:** GitHub Actions now, Azure for Students later (see above) |
