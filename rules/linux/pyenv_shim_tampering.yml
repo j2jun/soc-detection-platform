@@ -1,0 +1,32 @@
+title: Pyenv Shim Modified Outside Pyenv
+id: be9abf3e-048c-4abf-b09a-3e92541276a0
+status: experimental
+description: |
+  Detects a write to a pyenv shim by a process that isn't pyenv. Shims run every time a
+  developer types `python`, so replacing one gives persistent code execution. This is the
+  foothold in the 2026 Binance heist: a fake take-home assignment swapped a pyenv component
+  on an engineer's laptop.
+  Requires the audit rule `-w <home>/.pyenv/shims -p wa -k pyenv_shim`.
+references:
+  - https://www.bleepingcomputer.com/news/security/binance-says-fake-job-interview-led-to-63-billion-crypto-heist/
+  - https://attack.mitre.org/techniques/T1554/
+author: j2jun
+date: 2026-11-05
+tags:
+  - attack.persistence
+  - attack.t1554
+  - attack.execution
+  - attack.t1574
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: SYSCALL
+    key: pyenv_shim
+  filter_pyenv:
+    comm|startswith: pyenv
+  condition: selection and not filter_pyenv
+falsepositives:
+  - Tools other than pyenv that manage shims (rare)
+level: high

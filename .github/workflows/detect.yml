@@ -40,3 +40,33 @@ jobs:
         run: |
           set -o pipefail
           { echo "## ATT&CK coverage"; python3 attack_coverage.py custom.json sigma.json rules; } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # Linux rules can't be tested on recorded Windows logs, so this job records its own:
+  # it simulates the Binance pyenv-shim swap under auditd and checks each rule in rules/linux/
+  # fires on the attack but not on real pyenv activity.
+  linux-sim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install auditd, pyenv, and sigma-cli
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq auditd
+          git clone -q --depth 1 https://github.com/pyenv/pyenv.git ~/.pyenv
+          pip install -q sigma-cli pysigma-backend-sqlite
+          pip list 2>/dev/null | grep -i sigma
+
+      - name: Simulate benign pyenv activity, then the shim-swap attack
+        run: bash .github/simulate-pyenv-attack.sh
+
+      - name: Convert Linux rules to SQL
+        run: |
+          sigma convert -t sqlite --without-pipeline rules/linux/ | tee linux.sql
+
+      - name: Self-check the hunt script
+        run: python3 linux_hunt.py --test
+
+      - name: Hunt (fails on a missed attack or a false positive)
+        run: |
+          set -o pipefail
+          { echo "## Linux attack simulation"; python3 linux_hunt.py legit.log attack.log linux.sql; } | tee -a "$GITHUB_STEP_SUMMARY"
