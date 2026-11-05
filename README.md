@@ -2,7 +2,7 @@
 
 A mini Security Operations Center (SOC) home lab built with **Sigma rules**, **Wazuh**, and **Elastic Stack**, tested with **attack simulations** mapped to **MITRE ATT&CK**.
 
-> Status: research and planning. This document records what I've researched so far.
+> Status: phase 1 running (detection-as-code in GitHub Actions). Phase 2 (live Wazuh lab) is next.
 
 ## Goal
 
@@ -52,9 +52,44 @@ Simulate an attack → check that the logs arrived → write or convert a Sigma 
 - [MITRE Caldera](https://github.com/mitre/caldera)
 - [Sysmon](https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon) with the [SwiftOnSecurity](https://github.com/SwiftOnSecurity/sysmon-config) or [Olaf Hartong](https://github.com/olafhartong/sysmon-modular) config
 
+## Phase 1: detection-as-code in GitHub Actions
+
+Every push runs [`.github/workflows/detect.yml`](.github/workflows/detect.yml) on GitHub's free runners. Nothing is stored in the repo or on a laptop:
+
+1. Downloads [Chainsaw](https://github.com/WithSecureLabs/chainsaw) (runs Sigma rules directly against Windows `.evtx` logs), the SigmaHQ rules, and [EVTX-ATTACK-SAMPLES](https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES) (logs recorded during real ATT&CK attacks).
+2. Hunts the samples twice: once with my rules in [`rules/`](rules/), once with SigmaHQ's Windows rules.
+3. [`attack_coverage.py`](attack_coverage.py) maps the hits to the 12 techniques and writes the coverage table to the run summary. **The build fails if any of my rules stops firing**, so a broken rule can't slip in.
+
+| Path | What it is |
+|---|---|
+| `rules/` | My Sigma rules |
+| `attack_coverage.py` | Builds the coverage table from the hunt results |
+| `test_coverage.py` | Self-check for the technique-matching logic |
+| `.github/workflows/detect.yml` | The CI pipeline |
+
+### First results (2026-11-04)
+
+- **11 of 12 techniques** are detected by SigmaHQ community rules on the recorded attacks. **T1548.003 (Linux sudo abuse)** has no sample data: it needs the live lab in phase 2.
+- **My first rule**, [`windows_security_log_cleared.yml`](rules/windows_security_log_cleared.yml) (T1070.001), fires on cleared Security (1102) and System (104) logs.
+- **Lesson learned:** the first version of the rule never matched. Chainsaw ties `logsource: service: security` to the `Microsoft-Windows-Security-Auditing` provider, but Windows writes the log-cleared events under `Microsoft-Windows-Eventlog`. Matching on `Channel` instead fixed it. The SigmaHQ rules for T1070.001 show **zero hits** in the same run, probably for the same reason, so this is a real gap my rule fills.
+
 ## Decisions made
 
-### #2 SIEM backend: phased, Wazuh first, then Elastic (decided 2026-11-04)
+### #1 Where it runs: free cloud, zero laptop disk (decided 2026-11-04)
+
+Constraint: **no cost**, and as little laptop disk as possible (the laptop has ~15 GB free; a full local lab needs 50–100 GB).
+
+| Option | Laptop disk | Cost | Live attacks | Wazuh |
+|---|---|---|---|---|
+| Simulation in GitHub Codespaces | 0 | Free quota | No (recorded logs) | No |
+| Simulation in GitHub Actions | 0 | Free for public repos | No (recorded logs) | No |
+| Oracle Cloud Always Free | 0 | Free forever (card for identity check) | Linux only (ARM) | Yes |
+| Azure for Students | 0 | $100 credit/year, no card | Windows + Linux | Yes |
+
+- **Phase 1:** GitHub Actions (and Codespaces for editing) running Sigma rules against recorded attack logs.
+- **Phase 2:** Azure for Students for a live Wazuh lab with Windows and Linux victims. Stop VMs after each session and allow only my IP.
+
+### #2 SIEM backend: Sigma tools first, then Wazuh, Elastic as a stretch goal (decided 2026-11-04, updated for the zero-cost plan)
 
 | | Wazuh only | Wazuh + Elastic | Elastic only |
 |---|---|---|---|
@@ -64,8 +99,9 @@ Simulate an attack → check that the logs arrived → write or convert a Sigma 
 | ATT&CK mapping | Built-in MITRE ATT&CK dashboard view | Both | Elastic rule ATT&CK tags |
 | Response | Wazuh Active Response | Wazuh Active Response | Elastic Defend (some features paid) |
 
-- **Phase 1:** Wazuh only. Get logs, alerts and attack simulations working end to end.
-- **Phase 2:** add Elastic Stack as the Sigma rules-as-code pipeline, converted with pySigma's Elasticsearch backend.
+- **Phase 1:** Sigma rules run with Chainsaw in GitHub Actions against recorded attacks (see above).
+- **Phase 2:** Wazuh only, on Azure for Students. Get logs, alerts and live attack simulations working end to end.
+- **Stretch:** add Elastic Stack as a second Sigma backend (pySigma's Elasticsearch backend), only if the free credits have room.
 
 **Why:** Wazuh makes collection and response easy; Elastic makes running Sigma rules easy. Phasing gives a working lab before the hardest integration work, and the final setup still uses every tool in the project brief.
 
@@ -94,8 +130,8 @@ Approaches considered: breadth across tactics, one attack chain, emulating a thr
 
 | # | Decision | Options | Leaning toward |
 |---|---|---|---|
-| 1 | Where it runs | Laptop VMs (VirtualBox/UTM), home server, or cloud (AWS/Azure free tier) | Local VMs if 16GB+ RAM, otherwise cloud. Apple Silicon needs ARM Windows builds, which limits some tools. |
-| 2 | SIEM backend | Wazuh's built-in indexer (OpenSearch) or a separate Elastic Stack | **Decided:** phased, Wazuh first, then Elastic (see above) |
+| 1 | Where it runs | Laptop VMs (VirtualBox/UTM), home server, or cloud (AWS/Azure free tier) | **Decided:** GitHub Actions now, Azure for Students later (see above) |
+| 2 | SIEM backend | Wazuh's built-in indexer (OpenSearch) or a separate Elastic Stack | **Decided:** Sigma tools, then Wazuh, Elastic as stretch (see above) |
 | 3 | Victim machines | Windows, Linux, or both | Both. Most ATT&CK techniques and Sigma rules target Windows. |
 | 4 | Windows telemetry | Default event logs, or add Sysmon | Add Sysmon. Without it, most Sigma rules have nothing to match. |
 | 5 | Sigma rule use | Convert to Wazuh XML, to Elastic/OpenSearch queries, or both | Convert to the chosen backend with `sigma-cli`. Wazuh has no official Sigma backend, so Wazuh XML needs community tools or hand-porting. |
