@@ -24,6 +24,18 @@
 
 ## Step 0: cost and safety guardrails (before any VM exists)
 
+Run every `az` command in **Azure Cloud Shell** (the `>_` icon in the portal; choose Bash, then *No storage account required*), so nothing is installed on the laptop. Before the guardrails below: check that vCPU quota has at least 5 free in your region, then create the resource group and the NSG (both free):
+
+```sh
+az group create -n soc-lab-rg -l eastus --tags project=soc-lab
+az network nsg create -g soc-lab-rg -n soc-lab-nsg --tags project=soc-lab
+az network nsg rule create -g soc-lab-rg --nsg-name soc-lab-nsg -n allow-me \
+  --priority 100 --protocol Tcp --access Allow \
+  --source-address-prefixes YOUR.IP/32 --destination-port-ranges 22 443
+```
+
+Get `YOUR.IP` by running `curl -s https://ifconfig.me` on the laptop, not in Cloud Shell.
+
 | Guardrail | How | Why |
 |---|---|---|
 | Confirm the **spending limit is on** | Azure portal → Subscriptions → your subscription. Credit-based offers stop resources when the credit runs out instead of charging a card | The worst case becomes losing credit, not money |
